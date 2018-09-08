@@ -1,3 +1,7 @@
+cmake-build-debug
+
+################
+
 # Prerequisites
 *.d
 
@@ -50,3 +54,14 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#################
+# IDE files #
+#################
+/.idea/workspace.xml
+/.idea/tasks.xml
+/.idea/watcherTasks.xml
+/.idea/deployment.xml
+/.idea/dictionaries
+/.idea/dataSources
+/.idea/dataSources.local.xml

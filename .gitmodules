@@ -1,0 +1,3 @@
+[submodule "fluidlite"]
+	path = fluidlite
+	url = https://github.com/wallneradam/FluidLite.git
