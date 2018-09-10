@@ -239,6 +239,10 @@ bool flsynth_system_reset(synth_t *synth) {
     return fluid_synth_system_reset(synth->fluid_synth) == 0;
 }
 
+bool flsynth_cc(synth_t *synth, int chan, int ctrl, int val) {
+    return fluid_synth_cc(synth->fluid_synth, chan, ctrl, val) == 0;
+}
+
 
 /*
  * Setup

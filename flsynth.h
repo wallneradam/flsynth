@@ -67,14 +67,62 @@ bool flsynth_start(synth_t *synth);
  */
 bool flsynth_stop(synth_t *synth);
 
-
+/**
+ * Select program for channel
+ * @param synth Synth object
+ * @param chan Channel where we want to change program
+ * @param bank The sounont bank where the pereset is
+ * @param preset The instrument preset
+ * @return
+ */
 bool flsynth_program_select(synth_t *synth, int chan, unsigned int bank, unsigned int preset);
+
+/**
+ * The same as flsynth_program_select, but you can specify soundfont id as well, if you loaded multiple fonts
+ * @param synth Synth object
+ * @param chan Channel where we want to change program
+ * @param sfid The soundfont id which is returned by sfload call
+ * @param bank The sounont bank where the pereset is
+ * @param preset The instrument preset
+ * @return
+ */
 bool flsynth_program_select_sfid(synth_t *synth, int chan, unsigned int sfid, unsigned int bank, unsigned int preset);
 
+/**
+ * Play a note on the specified channel
+ * @param synth Synth object
+ * @param chan Channel where the note should be played
+ * @param key The key of the note (60 is the middle C)
+ * @param velocity Velociy value of the note (0-127)
+ * @return
+ */
 bool flsynth_noteon(synth_t *synth, int chan, int key, int velocity);
+
+/**
+ * Stop a previously playing note on a channel
+ * @param synth Synth object
+ * @param chan Channel where the not is playing
+ * @param key Key of the note
+ * @return
+ */
 bool flsynth_noteoff(synth_t *synth, int chan, int key);
 
+/**
+ * Big red panic button
+ * @param synth Synth object
+ * @return
+ */
 bool flsynth_system_reset(synth_t *synth);
+
+/**
+ * Send a MIDI controller event on a MIDI channel.
+ * @param synth Synth object
+ * @param chan Channel number
+ * @param ctrl MIDI controller number
+ * @param val MIDI controller value
+ * @return
+ */
+bool flsynth_cc(synth_t *synth, int chan, int ctrl, int val);
 
 
 #endif
