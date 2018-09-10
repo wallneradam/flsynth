@@ -3,6 +3,10 @@ project(flsynth C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast")
+if(${ANDROID})
+    # We must have hardware floating point to be able to calclulate fast enough!
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mhard-float -mfloat-abi=softfp -mfpu=vfp")
+endif()
 
 list(APPEND SOURCES
         fluidlite/src/fluid_chan.c
