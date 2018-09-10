@@ -15,6 +15,7 @@
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
 
 #endif
 

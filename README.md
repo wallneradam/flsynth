@@ -1,6 +1,6 @@
 # FLSynth
 
-It is a multiplatfor software MIDI synthesizer library using **FluidLite** as synth engine.
+It is a multiplatform software MIDI synthesizer library using **FluidLite** as synth engine.
 It uses **OpenSL ES** on Android and **SDL2** library on other platforms as audio 
 engine. It can load soundfont files (sf2 and sf3) and use their instrument
 prefixes as sound source.
