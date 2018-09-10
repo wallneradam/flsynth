@@ -37,7 +37,7 @@ flsynth_noteoff(synth, 0, 60);
 flsynth_noteoff(synth, 0, 64);
 flsynth_noteoff(synth, 0, 67);
 // Wait for release
-sleep(1)
+sleep(1);
 // Stop synthethiser
 flsynth_stop(synth);
 // Free object
