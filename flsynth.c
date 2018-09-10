@@ -18,6 +18,9 @@
 #include <semaphore.h>
 #include <errno.h>
 
+#include <android/log.h>
+// Redirect printf functions to android log
+#define printf(...) __android_log_print(ANDROID_LOG_INFO, "flsynth-printf", __VA_ARGS__)
 #endif
 
 
@@ -30,7 +33,7 @@ static inline void synthesize(synth_t *synth) {
     if (synth->channels == 2) {
         fluid_synth_write_s16(synth->fluid_synth, FRAME_PER_CYCLE, synth->buff, 0, 2, synth->buff, 1, 2);
     }
-    // mono
+        // mono
     else {
         fluid_synth_write_s16(synth->fluid_synth, FRAME_PER_CYCLE, synth->buff, 0, 1,
                               synth->buff + FRAME_PER_CYCLE * 2, 0, 1);
@@ -47,48 +50,52 @@ static inline void synthesize(synth_t *synth) {
 
 static int synthesize_thread(synth_t *synth) {
     int sem_res = 0;
-    SDL_sem *proc_sem = synth->proc_sem;
+    SDL_sem *synth_sem = synth->synth_sem;
+    SDL_sem *cb_sem = synth->cb_sem;
     while (true) {
-        sem_res = SDL_SemWaitTimeout(proc_sem, 500);
+        sem_res = SDL_SemWaitTimeout(synth_sem, 50);
         // Stop thread on timeout or if synth is stopped
         if (sem_res == SDL_MUTEX_TIMEDOUT || synth->audio_device == 0) break;
         synthesize(synth);
+        // Allow callback to copy buffer
+        SDL_SemPost(cb_sem);
     }
-    // We need to destroy semaphore here
-    SDL_DestroySemaphore(proc_sem);
     return 0;
 }
 
 static void audio_callback(synth_t *synth, unsigned char *stream, size_t stream_length) {
-//    printf("Length: %zu\n", stream_length);
+    SDL_SemWaitTimeout(synth->cb_sem, 15);
     // Just copy precalculated buffer
     memcpy(stream, synth->buff, stream_length);
     // Start next calculation
-    SDL_SemPost(synth->proc_sem);
+    SDL_SemPost(synth->synth_sem);
 }
 
 #else // __ANDROID__
 
 static void *synthesize_thread(synth_t *synth) {
-    struct timespec to = {0, 500000000};
-    sem_t *proc_sem = synth->proc_sem;
+    sem_t *synth_sem = synth->synth_sem;
+    sem_t *cb_sem = synth->cb_sem;
     while (true) {
-        int sem_res = sem_timedwait(proc_sem, &to);
+        int sem_res = sem_wait(synth_sem);
         if ((synth->audio_device == 0) || (sem_res != 0 && errno == ETIMEDOUT)) break;
         synthesize(synth);
+        // Allow callback to copy buffer
+        sem_post(cb_sem);
     }
-    // We need to destroy semaphore here
-    sem_destroy(proc_sem);
+    // We need to destroy semaphores here
     return NULL;
 }
 
 static void audio_callback(synth_t *synth, int __unused sample_rate, int buffer_frames,
                            int __unused input_channels, const short __unused *input_buffer,
                            int output_channels, short *output_buffer) {
+    // Wait for buffer ready
+    sem_wait(synth->cb_sem);
     // Just copy precalculated buffer
     memcpy(output_buffer, synth->buff, (size_t) (buffer_frames * output_channels * 2));
     // Start next calculation
-    sem_post(synth->proc_sem);
+    sem_post(synth->synth_sem);
 }
 
 #endif
@@ -99,7 +106,7 @@ synth_t *flsynth_create(unsigned int sample_rate, unsigned char channels) {
 
     synth->settings = new_fluid_settings();
     synth->fluid_synth = new_fluid_synth(synth->settings);
-    synth->buff = malloc((size_t) (FRAME_PER_CYCLE * 8)); // 8 -> 32 bit float * 2 channel (stereo)
+    synth->buff = malloc((size_t) (FRAME_PER_CYCLE * 4)); // 4 -> 16 bit * 2 channel (stereo)
     fluid_synth_set_sample_rate(synth->fluid_synth, sample_rate);
 
     synth->sample_rate = sample_rate;
@@ -108,7 +115,9 @@ synth_t *flsynth_create(unsigned int sample_rate, unsigned char channels) {
 #ifndef __ANDROID__
     SDL_InitSubSystem(SDL_INIT_AUDIO);
 #else
-    synth->proc_sem = calloc(sizeof(sem_t), 1);
+    synth->synth_thread = calloc(sizeof(pthread_t), 1);
+    synth->synth_sem = calloc(sizeof(sem_t), 1);
+    synth->cb_sem = calloc(sizeof(sem_t), 1);
 #endif
 
     return synth;
@@ -119,13 +128,16 @@ void flsynth_free(synth_t *synth) {
     delete_fluid_settings(synth->settings);
 
     free(synth->buff);
-    free(synth);
 
 #ifndef __ANDROID__
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 #else
-    free(synth->proc_sem);
+    free(synth->synth_thread);
+    free(synth->synth_sem);
+    free(synth->cb_sem);
 #endif
+
+    free(synth);
 }
 
 int flsynth_sfload(synth_t *synth, const char *filename, bool program_reset) {
@@ -140,8 +152,9 @@ bool flsynth_start(synth_t *synth) {
     synthesize(synth);
 
 #ifndef __ANDROID__
-    // Create a semaphore for thread synchronization
-    synth->proc_sem = SDL_CreateSemaphore(0);
+    // Create semaphores for thread synchronization
+    synth->synth_sem = SDL_CreateSemaphore(0);
+    synth->cb_sem = SDL_CreateSemaphore(0);
 
     // Create audio specification
     SDL_AudioSpec audioSpec;
@@ -160,18 +173,19 @@ bool flsynth_start(synth_t *synth) {
     SDL_PauseAudioDevice(synth->audio_device, 0);
 
     // Start background calculation
-    synth->proc_thread = SDL_CreateThread((SDL_ThreadFunction) synthesize_thread, "flsynth_processing_thread", synth);
+    synth->synth_thread = SDL_CreateThread((SDL_ThreadFunction) synthesize_thread, "flsynth_processing_thread", synth);
 #else // __ANDROID__
     // Create a semaphore for thread synchronization
-    sem_init(synth->proc_sem, 0, 0);
+    sem_init(synth->synth_sem, 0, 0);
+    sem_init(synth->cb_sem, 0, 1);
+
+    // Start background calculation
+    pthread_create(synth->synth_thread, NULL, (void *(*)(void *)) synthesize_thread, synth);
 
     // Initialize audio device and start playback
     synth->audio_device = opensl_open(synth->sample_rate, 0, synth->channels,
-                                      FRAME_PER_CYCLE * 8, (opensl_process_t) audio_callback, synth);
+                                      FRAME_PER_CYCLE, (opensl_process_t) audio_callback, synth);
     opensl_start(synth->audio_device);
-
-    // Start background calculation
-    pthread_create(synth->proc_thread, NULL, (void *(*)(void *)) synthesize_thread, synth);
 #endif
 
     return true;
@@ -181,12 +195,22 @@ void flsynth_stop(synth_t *synth) {
 #ifndef __ANDROID__
     SDL_CloseAudioDevice(synth->audio_device);
     synth->audio_device = 0;
-    SDL_SemPost(synth->proc_sem);
+    SDL_SemPost(synth->synth_sem);
+    memset(synth->buff, 0, FRAME_PER_CYCLE * 4); // Silence buffer
+    SDL_SemPost(synth->cb_sem);
+    SDL_WaitThread(synth->synth_thread, NULL);
+    // We need to destroy semaphores here
+    SDL_DestroySemaphore(synth->synth_sem);
+    SDL_DestroySemaphore(synth->cb_sem);
 #else // __ANDROID__
-    opensl_pause(synth->audio_device);
     opensl_close(synth->audio_device);
     synth->audio_device = NULL;
-    sem_post(synth->proc_sem);
+    sem_post(synth->synth_sem);
+    memset(synth->buff, 0, FRAME_PER_CYCLE * 4); // Silence buffer
+    sem_post(synth->cb_sem);
+    pthread_join(*((pthread_t *)synth->synth_thread), NULL);
+    sem_destroy(synth->synth_sem);
+    sem_destroy(synth->cb_sem);
 #endif
 }
 

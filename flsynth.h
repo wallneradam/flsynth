@@ -5,13 +5,7 @@
 
 // Howmany frames are processed in one cycle,
 //  if this is greater you will have more latency, but more stable sound
-#define FRAME_PER_CYCLE 512
-
-#ifdef __ANDROID__
-#include <android/log.h>
-// Redirect printf fnctions to android log
-#define printf(...) __android_log_print(ANDROID_LOG_DEFAULT, "flsynth-printf", __VA_ARGS__)
-#endif
+#define FRAME_PER_CYCLE 128
 
 
 typedef struct {
@@ -28,8 +22,10 @@ typedef struct {
 #else
     void *audio_device;
 #endif
-    void *proc_thread;
-    void *proc_sem;
+    void *synth_thread;
+
+    void *synth_sem;
+    void *cb_sem;
 } synth_t;
 
 
