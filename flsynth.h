@@ -5,7 +5,7 @@
 
 // Howmany frames are processed in one cycle,
 //  if this is greater you will have more latency, but more stable sound
-#define FRAME_PER_CYCLE 128
+#define FRAME_PER_CYCLE 256
 
 
 typedef struct {
@@ -26,6 +26,8 @@ typedef struct {
 
     void *synth_sem;
     void *cb_sem;
+
+    bool playing;
 } synth_t;
 
 
@@ -63,7 +65,7 @@ bool flsynth_start(synth_t *synth);
  * Stop the synthesis thread and audio engine.
  * @param synth Synth object
  */
-void flsynth_stop(synth_t *synth);
+bool flsynth_stop(synth_t *synth);
 
 
 bool flsynth_program_select(synth_t *synth, int chan, unsigned int bank, unsigned int preset);

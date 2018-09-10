@@ -55,7 +55,7 @@ static int synthesize_thread(synth_t *synth) {
     while (true) {
         sem_res = SDL_SemWaitTimeout(synth_sem, 50);
         // Stop thread on timeout or if synth is stopped
-        if (sem_res == SDL_MUTEX_TIMEDOUT || synth->audio_device == 0) break;
+        if (!synth->playing || sem_res == SDL_MUTEX_TIMEDOUT) break;
         synthesize(synth);
         // Allow callback to copy buffer
         SDL_SemPost(cb_sem);
@@ -78,7 +78,7 @@ static void *synthesize_thread(synth_t *synth) {
     sem_t *cb_sem = synth->cb_sem;
     while (true) {
         int sem_res = sem_wait(synth_sem);
-        if ((synth->audio_device == 0) || (sem_res != 0 && errno == ETIMEDOUT)) break;
+        if (!synth->playing  || (sem_res != 0 && errno == ETIMEDOUT)) break;
         synthesize(synth);
         // Allow callback to copy buffer
         sem_post(cb_sem);
@@ -148,6 +148,9 @@ int flsynth_sfload(synth_t *synth, const char *filename, bool program_reset) {
 
 
 bool flsynth_start(synth_t *synth) {
+    if (synth->playing) return false;
+    synth->playing = true;
+
     // Initial buffer calculation
     synthesize(synth);
 
@@ -187,31 +190,30 @@ bool flsynth_start(synth_t *synth) {
                                       FRAME_PER_CYCLE, (opensl_process_t) audio_callback, synth);
     opensl_start(synth->audio_device);
 #endif
-
     return true;
 }
 
-void flsynth_stop(synth_t *synth) {
+bool flsynth_stop(synth_t *synth) {
+    if (!synth->playing) return false;
+    synth->playing = false;
 #ifndef __ANDROID__
-    SDL_CloseAudioDevice(synth->audio_device);
-    synth->audio_device = 0;
     SDL_SemPost(synth->synth_sem);
+    SDL_WaitThread(synth->synth_thread, NULL);
     memset(synth->buff, 0, FRAME_PER_CYCLE * 4); // Silence buffer
     SDL_SemPost(synth->cb_sem);
-    SDL_WaitThread(synth->synth_thread, NULL);
-    // We need to destroy semaphores here
+    SDL_CloseAudioDevice(synth->audio_device);
     SDL_DestroySemaphore(synth->synth_sem);
     SDL_DestroySemaphore(synth->cb_sem);
 #else // __ANDROID__
-    opensl_close(synth->audio_device);
-    synth->audio_device = NULL;
     sem_post(synth->synth_sem);
+    pthread_join(*((pthread_t *)synth->synth_thread), NULL);
     memset(synth->buff, 0, FRAME_PER_CYCLE * 4); // Silence buffer
     sem_post(synth->cb_sem);
-    pthread_join(*((pthread_t *)synth->synth_thread), NULL);
+    opensl_close(synth->audio_device);
     sem_destroy(synth->synth_sem);
     sem_destroy(synth->cb_sem);
 #endif
+    return true;
 }
 
 
