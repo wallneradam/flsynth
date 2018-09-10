@@ -1,3 +1,6 @@
 [submodule "fluidlite"]
 	path = fluidlite
 	url = https://github.com/wallneradam/FluidLite.git
+[submodule "opensl_stream"]
+	path = opensl_stream
+	url = https://github.com/wallneradam/opensl_stream.git

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 project(flsynth C)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast")
 
 list(APPEND SOURCES
         fluidlite/src/fluid_chan.c
@@ -22,7 +23,7 @@ list(APPEND SOURCES
         fluidlite/src/fluid_voice.c
         )
 
-IF (NOT DISABLE_SF3)
+if (NOT DISABLE_SF3)
     list(APPEND SOURCES
             fluidlite/libvorbis-1.3.5/lib/vorbisenc.c
             fluidlite/libvorbis-1.3.5/lib/info.c
@@ -58,13 +59,18 @@ IF (NOT DISABLE_SF3)
             fluidlite/libogg-1.3.2/src/framing.c
             )
     set(LIBOGG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/fluidlite/libogg-1.3.2/include)
-ENDIF()
+
+    include_directories(${LIBOGG_INCLUDE_DIRS})
+    include_directories(${LIBVORBIS_INCLUDE_DIRS})
+endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/fluidlite/src)
 include_directories(${CMAKE_SOURCE_DIR}/fluidlite/include)
-include_directories(${LIBOGG_INCLUDE_DIRS})
-include_directories(${LIBVORBIS_INCLUDE_DIRS})
 
+if(${ANDROID})
+    list(APPEND SOURCES
+            opensl_stream/opensl_stream.c)
+endif()
 
 # flsynth source
 list(APPEND SOURCES
@@ -74,11 +80,19 @@ list(APPEND SOURCES
 add_compile_options(-ffast-math)
 
 add_library(flsynth SHARED ${SOURCES})
-target_link_libraries(flsynth m SDL2)
-
-IF (DISABLE_SF3)
-    target_compile_definitions(flsynth PUBLIC SF3_SUPPORT=0)
-ENDIF()
-
 add_executable(test-cmajor tests/cmajor.c)
-target_link_libraries(test-cmajor m SDL2 flsynth)
+
+target_link_libraries(flsynth m)
+target_link_libraries(test-cmajor m flsynth)
+
+if(${ANDROID})
+    target_link_libraries(flsynth log OpenSLES)
+    target_link_libraries(test-cmajor log OpenSLES)
+else()
+    target_link_libraries(flsynth SDL2)
+    target_link_libraries(test-cmajor SDL2)
+endif()
+
+if (DISABLE_SF3)
+    target_compile_definitions(flsynth PUBLIC SF3_SUPPORT=0)
+endif()

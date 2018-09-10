@@ -10,7 +10,7 @@
 #ifdef __ANDROID__
 #include <android/log.h>
 // Redirect printf fnctions to android log
-#define printf(fmt, ...) __android_log_print(ANDROID_LOG_DEFAULT, "flsynth-printf", fmt, __VA_ARGS__)
+#define printf(...) __android_log_print(ANDROID_LOG_DEFAULT, "flsynth-printf", __VA_ARGS__)
 #endif
 
 
@@ -23,8 +23,11 @@ typedef struct {
     unsigned int last_sfid;
     void *buff;
 
+#ifndef __ANDROID__
     unsigned int audio_device;
-
+#else
+    void *audio_device;
+#endif
     void *proc_thread;
     void *proc_sem;
 } synth_t;

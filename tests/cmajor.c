@@ -8,7 +8,7 @@ int main() {
     synth_t *synth = flsynth_create(44100, 2);
 
     echo("Loading soundfont... ");
-    flsynth_sfload(synth, "2gmgsmt.sf2", false);
+    flsynth_sfload(synth, "../tests/2gmgsmt.sf2", false);
     echo("OK.\n");
     flsynth_program_select(synth, 0, 0, 19); // Church organ
 
