@@ -54,6 +54,7 @@ static inline void synthesize(synth_t *synth) {
 #ifndef __ANDROID__
 
 static int synthesize_thread(synth_t *synth) {
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
     int sem_res = 0;
     SDL_sem *synth_sem = synth->synth_sem;
     SDL_sem *cb_sem = synth->cb_sem;
