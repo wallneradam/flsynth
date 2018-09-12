@@ -1,0 +1,4 @@
+{
+  global: flsynth_*;
+  local: *;
+};

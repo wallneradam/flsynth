@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.1)
 project(flsynth C)
 
+#set(CMAKE_VERBOSE_MAKEFILE ON)
+
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -Wno-format-overflow -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Ofast")
+SET(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -gc-sections")
+
 if(${ANDROID})
     # We must have hardware floating point to be able to calclulate fast enough!
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mhard-float -mfloat-abi=softfp -mfpu=vfp")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mhard-float -mfloat-abi=softfp -mfpu=vfp -marm")
 endif()
 
-list(APPEND SOURCES
+list(APPEND FL_SOURCES
         fluidlite/src/fluid_chan.c
         fluidlite/src/fluid_chorus.c
         fluidlite/src/fluid_conv.c
@@ -28,7 +33,7 @@ list(APPEND SOURCES
         )
 
 if (NOT DISABLE_SF3)
-    list(APPEND SOURCES
+    list(APPEND FL_SOURCES
             fluidlite/libvorbis-1.3.5/lib/vorbisenc.c
             fluidlite/libvorbis-1.3.5/lib/info.c
             fluidlite/libvorbis-1.3.5/lib/analysis.c
@@ -58,7 +63,7 @@ if (NOT DISABLE_SF3)
             ${CMAKE_SOURCE_DIR}/fluidlite/libvorbis-1.3.5/lib
             )
 
-    list(APPEND SOURCES
+    list(APPEND FL_SOURCES
             fluidlite/libogg-1.3.2/src/bitwise.c
             fluidlite/libogg-1.3.2/src/framing.c
             )
@@ -71,22 +76,30 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/fluidlite/src)
 include_directories(${CMAKE_SOURCE_DIR}/fluidlite/include)
 
+add_library(fluidlite STATIC ${FL_SOURCES})
+target_compile_options(fluidlite PUBLIC -fPIC -ffunction-sections -fdata-sections)
+
+
 if(${ANDROID})
-    list(APPEND SOURCES
-            opensl_stream/opensl_stream.c)
+    list(APPEND SL_SOURCES opensl_stream/opensl_stream.c)
+    add_library(opensl STATIC ${SL_SOURCES})
 endif()
 
-# flsynth source
-list(APPEND SOURCES
-        flsynth.c flsynth.h
-        )
 
-add_compile_options(-ffast-math)
+# flsynth source
+list(APPEND SOURCES flsynth.c flsynth.h)
 
 add_library(flsynth SHARED ${SOURCES})
 add_executable(test-cmajor tests/cmajor.c)
 
 target_link_libraries(flsynth m)
+target_link_libraries(flsynth fluidlite)
+if(${ANDROID})
+    target_link_libraries(flsynth opensl)
+endif()
+target_compile_options(flsynth PUBLIC -ffunction-sections -fdata-sections)
+set_target_properties(flsynth PROPERTIES LINK_FLAGS "-Wl,--gc-sections -Wl,--version-script=${CMAKE_SOURCE_DIR}/version.script")
+
 target_link_libraries(test-cmajor m flsynth)
 
 if(${ANDROID})
@@ -98,5 +111,5 @@ else()
 endif()
 
 if (DISABLE_SF3)
-    target_compile_definitions(flsynth PUBLIC SF3_SUPPORT=0)
+    target_compile_definitions(fluidlite PUBLIC SF3_SUPPORT=0)
 endif()
