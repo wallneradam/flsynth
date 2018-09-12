@@ -21,6 +21,11 @@
 #include <android/log.h>
 // Redirect printf functions to android log
 #define printf(...) __android_log_print(ANDROID_LOG_INFO, "flsynth-printf", __VA_ARGS__)
+
+// We need "_init" on android to make UPX work, but on other platforms it cause "multiple definitio" error
+#define init _init
+#define fini _fini
+
 #endif
 
 
