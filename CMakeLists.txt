@@ -5,7 +5,8 @@ project(flsynth C)
 
 set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -Wno-format-overflow -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Ofast")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -Wno-format-overflow -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Ofast \
+    -fno-signed-zeros -fno-trapping-math -fopenmp -frename-registers")
 SET(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -gc-sections")
 
 if(${ANDROID})
@@ -77,6 +78,7 @@ include_directories(${CMAKE_SOURCE_DIR}/fluidlite/src)
 include_directories(${CMAKE_SOURCE_DIR}/fluidlite/include)
 
 add_library(fluidlite STATIC ${FL_SOURCES})
+target_link_libraries(fluidlite m)
 target_compile_options(fluidlite PUBLIC -fPIC -ffunction-sections -fdata-sections)
 
 
@@ -100,7 +102,7 @@ endif()
 target_compile_options(flsynth PUBLIC -ffunction-sections -fdata-sections)
 set_target_properties(flsynth PROPERTIES LINK_FLAGS "-Wl,--gc-sections -Wl,--version-script=${CMAKE_SOURCE_DIR}/version.script")
 
-target_link_libraries(test-cmajor m flsynth)
+target_link_libraries(test-cmajor flsynth)
 
 if(${ANDROID})
     target_link_libraries(flsynth log OpenSLES)
